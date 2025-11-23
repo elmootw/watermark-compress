@@ -17,18 +17,15 @@ class ImageProcessor:
         
         Args:
             input_dir: 輸入資料夾路徑
-            output_dir: 輸出資料夾路徑（默認為 input_dir/output）
+            output_dir: 輸出資料夾路徑（默認為 input_dir）
             watermark_text: 浮水印文字
         """
         self.input_dir = Path(input_dir)
-        self.output_dir = Path(output_dir) if output_dir else self.input_dir / "output"
+        self.output_dir = Path(output_dir) if output_dir else self.input_dir
         self.watermark_text = watermark_text
         
         # 浮水印顏色（#D4AF37 金色，透明度 100%）
         self.watermark_color = (212, 175, 55, int(255 * 1.0))  # RGBA with 100% opacity
-        
-        # 確保輸出資料夾存在
-        self.output_dir.mkdir(exist_ok=True)
         
     def get_watermark_font_size(self, image_width, image_height):
         """
