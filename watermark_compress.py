@@ -8,7 +8,9 @@ import os
 import sys
 from pathlib import Path
 from PIL import Image, ImageFont, ImageDraw
+from PIL.ExifTags import TAGS
 import math
+import re
 
 class ImageProcessor:
     def __init__(self, input_dir, output_dir=None, watermark_text="ELMO.H Photography"):
@@ -26,6 +28,44 @@ class ImageProcessor:
         
         # 浮水印顏色（#D4AF37 金色，透明度 100%）
         self.watermark_color = (212, 175, 55, int(255 * 1.0))  # RGBA with 100% opacity
+    
+    @staticmethod
+    def natural_sort_key(path):
+        """
+        用於自然數字排序的 key 函數
+        例如: photo-1, photo-2, photo-10 (而不是 photo-1, photo-10, photo-2)
+        """
+        return [int(text) if text.isdigit() else text.lower() 
+                for text in re.split('([0-9]+)', str(path.name))]
+    
+    @staticmethod
+    def apply_exif_rotation(image):
+        """
+        根據 EXIF 信息自動旋轉圖像
+        處理相機/手機拍攝時的方向標記
+        """
+        try:
+            # 獲取 EXIF 數據
+            exif_data = image._getexif()
+            if exif_data is None:
+                return image
+            
+            # 查找旋轉標記 (Orientation tag = 274)
+            for tag, value in exif_data.items():
+                if tag == 274:  # Orientation tag
+                    # 根據 EXIF 方向值旋轉圖像
+                    if value == 3:
+                        image = image.rotate(180, expand=True)
+                    elif value == 6:
+                        image = image.rotate(270, expand=True)
+                    elif value == 8:
+                        image = image.rotate(90, expand=True)
+                    break
+        except (AttributeError, KeyError, IndexError):
+            # 如果沒有 EXIF 信息或出錯，直接返回原圖
+            pass
+        
+        return image
         
     def get_watermark_font_size(self, image_width, image_height):
         """
@@ -127,11 +167,11 @@ class ImageProcessor:
         # 支持的圖像格式
         image_extensions = {'.jpg', '.jpeg', '.png'}
         
-        # 獲取所有圖像文件並排序
+        # 獲取所有圖像文件並使用自然數字排序
         image_files = sorted([
             f for f in self.input_dir.iterdir()
             if f.suffix.lower() in image_extensions and f.is_file()
-        ])
+        ], key=self.natural_sort_key)
         
         if not image_files:
             print(f"在 {self.input_dir} 中未找到任何圖像文件")
@@ -146,6 +186,9 @@ class ImageProcessor:
                 
                 # 打開圖像
                 image = Image.open(file_path)
+                
+                # 應用 EXIF 旋轉（修正相機/手機的方向標記）
+                image = self.apply_exif_rotation(image)
                 
                 # 先壓縮圖像
                 image, quality = self.compress_image(image)
