@@ -13,7 +13,7 @@ import math
 import re
 
 class ImageProcessor:
-    def __init__(self, input_dir, output_dir=None, watermark_text="ELMO.H Photography"):
+    def __init__(self, input_dir, output_dir=None, watermark_text="ELMO.H Photography", sort_by="filename"):
         """
         初始化圖像處理器
         
@@ -21,10 +21,12 @@ class ImageProcessor:
             input_dir: 輸入資料夾路徑
             output_dir: 輸出資料夾路徑（默認為 input_dir）
             watermark_text: 浮水印文字
+            sort_by: 排序方式 ("filename" 按文件名排序, "date_newest" 按修改日期排序，新的在前)
         """
         self.input_dir = Path(input_dir)
         self.output_dir = Path(output_dir) if output_dir else self.input_dir
         self.watermark_text = watermark_text
+        self.sort_by = sort_by
         
         # 浮水印顏色（#D4AF37 金色，透明度 100%）
         self.watermark_color = (212, 175, 55, int(255 * 1.0))  # RGBA with 100% opacity
@@ -37,6 +39,14 @@ class ImageProcessor:
         """
         return [int(text) if text.isdigit() else text.lower() 
                 for text in re.split('([0-9]+)', str(path.name))]
+    
+    @staticmethod
+    def date_sort_key(path):
+        """
+        按修改日期排序的 key 函數（新的在前）
+        """
+        # 獲取文件修改時間，用負值使最新的文件排在最前面
+        return -path.stat().st_mtime
     
     @staticmethod
     def apply_exif_rotation(image):
@@ -167,17 +177,28 @@ class ImageProcessor:
         # 支持的圖像格式
         image_extensions = {'.jpg', '.jpeg', '.png'}
         
-        # 獲取所有圖像文件並使用自然數字排序
-        image_files = sorted([
+        # 獲取所有圖像文件
+        image_files = [
             f for f in self.input_dir.iterdir()
             if f.suffix.lower() in image_extensions and f.is_file()
-        ], key=self.natural_sort_key)
+        ]
+        
+        # 根據設定的排序方式排序
+        if self.sort_by == "date_newest":
+            # 按修改日期排序，新的在前
+            image_files = sorted(image_files, key=self.date_sort_key)
+            sort_info = "修改日期（新的在前）"
+        else:
+            # 默認按文件名自然數字排序
+            image_files = sorted(image_files, key=self.natural_sort_key)
+            sort_info = "文件名（自然數字順序）"
         
         if not image_files:
             print(f"在 {self.input_dir} 中未找到任何圖像文件")
             return
         
         print(f"找到 {len(image_files)} 個圖像文件")
+        print(f"排序方式: {sort_info}")
         print(f"輸出文件夾: {self.output_dir}\n")
         
         for index, file_path in enumerate(image_files, 1):
@@ -223,16 +244,42 @@ def main():
     """主程序入口"""
     if len(sys.argv) < 2:
         print("使用方式:")
-        print(f"  {sys.argv[0]} <input_directory> [output_directory] [font_path]")
+        print(f"  {sys.argv[0]} <input_directory> [options]")
+        print("\n選項:")
+        print("  --output <path>    指定輸出目錄")
+        print("  --font <path>      指定字體文件")
+        print("  --sort date        按修改日期排序（新的在前）")
+        print("  --sort name        按文件名排序（默認）")
         print("\n範例:")
         print(f"  {sys.argv[0]} ./photos")
-        print(f"  {sys.argv[0]} ./photos ./output")
-        print(f"  {sys.argv[0]} ./photos ./output \"/System/Library/Fonts/Times New Roman.ttf\"")
+        print(f"  {sys.argv[0]} ./photos --sort date")
+        print(f"  {sys.argv[0]} ./photos --output ./output --sort date")
+        print(f"  {sys.argv[0]} ./photos --font /path/to/font.ttf")
         sys.exit(1)
     
     input_dir = sys.argv[1]
-    output_dir = sys.argv[2] if len(sys.argv) > 2 else None
-    font_path = sys.argv[3] if len(sys.argv) > 3 else None
+    output_dir = None
+    font_path = None
+    sort_by = "filename"
+    
+    # 解析選項參數
+    i = 2
+    while i < len(sys.argv):
+        if sys.argv[i] == "--output" and i + 1 < len(sys.argv):
+            output_dir = sys.argv[i + 1]
+            i += 2
+        elif sys.argv[i] == "--font" and i + 1 < len(sys.argv):
+            font_path = sys.argv[i + 1]
+            i += 2
+        elif sys.argv[i] == "--sort" and i + 1 < len(sys.argv):
+            sort_arg = sys.argv[i + 1].lower()
+            if sort_arg in ("date", "date_newest"):
+                sort_by = "date_newest"
+            else:
+                sort_by = "filename"
+            i += 2
+        else:
+            i += 1
     
     # 驗證輸入目錄
     if not os.path.isdir(input_dir):
@@ -240,7 +287,7 @@ def main():
         sys.exit(1)
     
     # 創建處理器並開始處理
-    processor = ImageProcessor(input_dir, output_dir)
+    processor = ImageProcessor(input_dir, output_dir, sort_by=sort_by)
     processor.process_images(font_path)
 
 

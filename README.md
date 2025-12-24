@@ -32,17 +32,32 @@
 
 ## 🚀 快速開始
 
-### 初次使用（自動安裝依賴）
+### 基本使用（自動安裝依賴）
 
 ```bash
 ./watermark.sh /path/to/photos
 ```
 
-### 指定輸出目錄
+### 常見用法
 
 ```bash
-./watermark.sh /path/to/photos /path/to/output
+# 按修改日期排序（新的照片排在前面）
+./watermark.sh /path/to/photos --sort date
+
+# 指定輸出目錄
+./watermark.sh /path/to/photos --output /path/to/output
+
+# 指定自訂字體
+./watermark.sh /path/to/photos --font /path/to/font.ttf
+
+# 組合使用
+./watermark.sh /path/to/photos --sort date --output /path/to/output --font /path/to/font.ttf
 ```
+
+### 排序選項
+
+- `--sort name` 或省略：按文件名自然數字排序（默認）
+- `--sort date`：按修改日期排序，最新的照片編號為 photo-1
 
 ## 📁 輸出
 
